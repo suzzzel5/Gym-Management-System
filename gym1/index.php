@@ -491,6 +491,77 @@ if( ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pid']) ) || (isset(
 		</div>
 	</section>
 
+		<!-- Pricing Section -->
+	<section id="pricing" class="pricing-section section-padding">
+		<div class="container">
+			<div class="section-title" data-aos="fade-up">
+				<h2>Choose Your Plan</h2>
+				<p>Select the perfect fitness package that fits your lifestyle and goals. Start your transformation today!</p>
+			</div>
+			
+			<div class="row">
+				        <?php 
+				$sql = "SELECT id, category, titlename, PackageType, PackageDuratiobn, Price, uploadphoto, Description, create_date FROM tbladdpackage";
+				$query = $dbh->prepare($sql);
+				$query->execute();
+				$results = $query->fetchAll(PDO::FETCH_OBJ);
+				$cnt = 1;
+				if($query->rowCount() > 0) {
+					foreach($results as $result) {
+						$isFeatured = ($cnt == 2) ? 'featured' : '';
+						
+						// Check if user has already booked this package
+						$alreadyBooked = false;
+						if(strlen($_SESSION['uid']) > 0) {
+							$check_booking = "SELECT id FROM tblbooking WHERE package_id=:pid AND userid=:uid";
+							$check_query = $dbh->prepare($check_booking);
+							$check_query->bindParam(':pid', $result->id, PDO::PARAM_STR);
+							$check_query->bindParam(':uid', $_SESSION['uid'], PDO::PARAM_STR);
+							$check_query->execute();
+							$alreadyBooked = ($check_query->rowCount() > 0);
+						}
+						
+						$cardAttr = "";
+						if(strlen($_SESSION['uid']) == 0) {
+							$cardAttr = "onclick=\"window.location.href='login.php'\" style=\"cursor: pointer;\"";
+						} elseif(!$alreadyBooked) {
+							$bookUrl = "index.php?action=book&pid=" . urlencode($result->id);
+							$cardAttr = "onclick=\"if(confirm('Are you sure you want to book this package?')) window.location.href='$bookUrl'\" style=\"cursor: pointer;\"";
+						}
+				?>
+				<div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="<?php echo $cnt * 100; ?>">
+					<div class="pricing-card <?php echo $isFeatured; ?>" <?php echo $cardAttr; ?>>
+						<h4 class="package-name"><?php echo htmlentities($result->titlename); ?></h4>
+						<div class="package-price">RS <?php echo htmlentities($result->Price); ?></div>
+						<div class="package-duration"><?php echo htmlentities($result->PackageDuratiobn); ?></div>
+						<div class="package-description">
+							<?php echo htmlentities($result->Description); ?>
+						</div>
+						
+						<?php if(strlen($_SESSION['uid']) == 0): ?>
+						<span class="btn-book btn-login" style="display:inline-block">
+							<i class="fas fa-sign-in-alt me-2"></i>Login to Book
+						</span>
+						<?php elseif($alreadyBooked): ?>
+						<button class="btn-book btn-already-booked" disabled>
+							<i class="fas fa-check-circle me-2"></i>Already Booked
+						</button>
+						<?php else: ?>
+							<span class='btn-book' style="display:inline-block">
+								<i class="fas fa-calendar-check me-2"></i>Book Now
+							</span>
+						<?php endif; ?>
+					</div>
+				</div>
+				<?php 
+					$cnt = $cnt + 1; 
+					} 
+				} 
+				?>
+			</div>
+		</div>
+	</section>
+
 	<!-- Features Section -->
 	<section class="features-section section-padding">
 		<div class="container">
@@ -563,68 +634,7 @@ if( ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pid']) ) || (isset(
 		</div>
 	</section>
 
-	<!-- Pricing Section -->
-	<section id="pricing" class="pricing-section section-padding">
-		<div class="container">
-			<div class="section-title" data-aos="fade-up">
-				<h2>Choose Your Plan</h2>
-				<p>Select the perfect fitness package that fits your lifestyle and goals. Start your transformation today!</p>
-			</div>
-			
-			<div class="row">
-				        <?php 
-				$sql = "SELECT id, category, titlename, PackageType, PackageDuratiobn, Price, uploadphoto, Description, create_date FROM tbladdpackage";
-				$query = $dbh->prepare($sql);
-				$query->execute();
-				$results = $query->fetchAll(PDO::FETCH_OBJ);
-				$cnt = 1;
-				if($query->rowCount() > 0) {
-					foreach($results as $result) {
-						$isFeatured = ($cnt == 2) ? 'featured' : '';
-						
-						// Check if user has already booked this package
-						$alreadyBooked = false;
-						if(strlen($_SESSION['uid']) > 0) {
-							$check_booking = "SELECT id FROM tblbooking WHERE package_id=:pid AND userid=:uid";
-							$check_query = $dbh->prepare($check_booking);
-							$check_query->bindParam(':pid', $result->id, PDO::PARAM_STR);
-							$check_query->bindParam(':uid', $_SESSION['uid'], PDO::PARAM_STR);
-							$check_query->execute();
-							$alreadyBooked = ($check_query->rowCount() > 0);
-						}
-				?>
-				<div class="col-lg-4 col-md-6 mb-4" data-aos="fade-up" data-aos-delay="<?php echo $cnt * 100; ?>">
-					<div class="pricing-card <?php echo $isFeatured; ?>">
-						<h4 class="package-name"><?php echo htmlentities($result->titlename); ?></h4>
-						<div class="package-price">RS <?php echo htmlentities($result->Price); ?></div>
-						<div class="package-duration"><?php echo htmlentities($result->PackageDuratiobn); ?></div>
-						<div class="package-description">
-							<?php echo htmlentities($result->Description); ?>
-						</div>
-						
-						<?php if(strlen($_SESSION['uid']) == 0): ?>
-						<a href="login.php" class="btn-book btn-login">
-							<i class="fas fa-sign-in-alt me-2"></i>Login to Book
-						</a>
-						<?php elseif($alreadyBooked): ?>
-						<button class="btn-book btn-already-booked" disabled>
-							<i class="fas fa-check-circle me-2"></i>Already Booked
-						</button>
-						<?php else: ?>
-							<a class='btn-book' href='index.php?action=book&pid=<?php echo urlencode($result->id); ?>' onclick="return confirm('Are you sure you want to book this package?');">
-								<i class="fas fa-calendar-check me-2"></i>Book Now
-							</a>
-						<?php endif; ?>
-					</div>
-				</div>
-				<?php 
-					$cnt = $cnt + 1; 
-					} 
-				} 
-				?>
-			</div>
-		</div>
-	</section>
+
 
 	<!-- Footer Section -->
 	<?php include 'include/footer.php'; ?>
