@@ -40,6 +40,8 @@ $RepeatPassword = $_POST['RepeatPassword'];
         $error = "Please Enter Mobile No";
     } else if(empty($email)) {
         $error = "Please Enter Email";
+    } else if(!preg_match("/\.com$/i", $email)) {
+        $error = "Email address must end with .com";
     } else if($email == $usrdbeml || $mobile == $usrdbmble) {
         $error = "Email Id or Mobile Number Already Exists!";
     } else if($Password == "" || $RepeatPassword == "") {
@@ -423,101 +425,180 @@ $RepeatPassword = $_POST['RepeatPassword'];
 		</div>
 	</section>
 
-	<!-- Registration Section -->
-	<section class="registration-section">
-		<div class="container">
-			<div class="section-header" data-aos="fade-up">
-				<h2 class="section-title">Create Account</h2>
-				<p class="section-subtitle">Fill in your details to create your Elite Fitness membership</p>
-			</div>
-			
-			<div class="registration-form-container" data-aos="fade-up" data-aos-delay="200">
-				<div class="registration-icon">
-					<i class="fas fa-user-plus"></i>
-				</div>
-				
-				<h3 class="form-title">Registration Form</h3>
-				
-				<?php if($error){ ?>
-					<div class="errorWrap">
-						<i class="fas fa-exclamation-triangle me-2"></i>
-						<strong>Error:</strong> <?php echo htmlentities($error); ?>
-					</div>
-				<?php } else if($succmsg){ ?>
-					<div class="succWrap">
-						<i class="fas fa-check-circle me-2"></i>
-						<strong>Success:</strong> <?php echo htmlentities($succmsg); ?>
-					</div>
-				<?php } ?>
-				
-				<form method="post" class="registration-form" onsubmit="return validateForm()">
-					<div class="form-row">
-						<div class="form-group">
-							<label class="form-label">First Name</label>
-							<input type="text" name="fname" id="fname" class="form-control" placeholder="Enter your first name" pattern="[A-Za-z]+" title="Letters only" autocomplete="off" value="<?php echo htmlentities($fname); ?>" required>
-						</div>
-						
-						<div class="form-group">
-							<label class="form-label">Last Name</label>
-							<input type="text" name="lname" id="lname" class="form-control" placeholder="Enter your last name" pattern="[A-Za-z]+" title="Letters only" autocomplete="off" value="<?php echo htmlentities($lname); ?>" required>
-				</div>
-							</div>
-					
-					<div class="form-row">
-						<div class="form-group">
-							<label class="form-label">Email Address</label>
-							<input type="email" name="email" id="email" class="form-control" placeholder="Enter your email address" autocomplete="off" value="<?php echo htmlentities($email); ?>" required>
-							</div>
-						
-						<div class="form-group">
-							<label class="form-label">Mobile Number</label>
-							<input type="text" name="mobile" id="mobile" class="form-control" maxlength="10" placeholder="Enter your mobile number" pattern="[0-9]+" title="Numbers only" autocomplete="off" value="<?php echo htmlentities($mobile); ?>" required>
-							</div>
-							</div>
-					
-					<div class="form-row">
-						<div class="form-group">
-							<label class="form-label">State</label>
-							<input type="text" name="state" id="state" class="form-control" placeholder="Enter your state" pattern="[A-Za-z\s]+" title="Letters and spaces only" autocomplete="off" value="<?php echo htmlentities($state); ?>" required>
-							</div>
-						
-						<div class="form-group">
-							<label class="form-label">City</label>
-							<input type="text" name="city" id="city" class="form-control" placeholder="Enter your city" pattern="[A-Za-z\s]+" title="Letters and spaces only" autocomplete="off" value="<?php echo htmlentities($city); ?>" required>
-							</div>
-							</div>
-					
-					<div class="form-row">
-						<div class="form-group">
-							<label class="form-label">Password</label>
-							<input type="password" name="password" id="password" class="form-control" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}" title="At least one number, one uppercase and lowercase letter, and at least 6 characters" placeholder="Create a strong password" autocomplete="off" required>
-							<div class="password-strength" id="passwordStrength"></div>
-							</div>
-								
-						<div class="form-group">
-							<label class="form-label">Confirm Password</label>
-							<input type="password" name="RepeatPassword" id="RepeatPassword" class="form-control" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}" title="At least one number, one uppercase and lowercase letter, and at least 6 characters" placeholder="Confirm your password" autocomplete="off" required>
-							</div>
-						</div>
-					
-					<button type="submit" id="submit" name="submit" class="btn-register">
-						<i class="fas fa-user-plus me-2"></i>Create Account
-					</button>
-					</form>
-				
-				<div class="login-link">
-					<p>Already have an account? <a href="login.php">Login here</a></p>
-				</div>
-			</div>
-		</div>
-	</section>
+<!-- Registration Section -->
+<!-- Registration Section -->
+<section class="registration-section">
+  <div class="container">
+    <div class="section-header" data-aos="fade-up">
+      <h2 class="section-title">Create Account</h2>
+      <p class="section-subtitle">Fill in your details to create your Elite Fitness membership</p>
+    </div>
+    <div class="registration-form-container" data-aos="fade-up" data-aos-delay="200">
+      <div class="registration-icon"><i class="fas fa-user-plus"></i></div>
+      <h3 class="form-title">Registration Form</h3>
+      <form id="registrationForm" class="registration-form" method="post" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" name="fname" id="fname" class="form-control" placeholder="Enter your first name" pattern="[A-Za-z]+" autocomplete="off" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="lname" id="lname" class="form-control" placeholder="Enter your last name" pattern="[A-Za-z]+" autocomplete="off" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" name="email" id="email" class="form-control" placeholder="example@domain.com" autocomplete="off" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mobile Number</label>
+            <input type="text" name="mobile" id="mobile" class="form-control" maxlength="10" placeholder="9XXXXXXXXX" pattern="9[0-9]{9}" autocomplete="off" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <select name="state" id="state" class="form-control" required onchange="updateCities()">
+              <option value="">Select Province</option>
+              <option value="Koshi">Koshi Province</option>
+              <option value="Madhesh">Madhesh Province</option>
+              <option value="Bagmati">Bagmati Province</option>
+              <option value="Gandaki">Gandaki Province</option>
+              <option value="Lumbini">Lumbini Province</option>
+              <option value="Karnali">Karnali Province</option>
+              <option value="Sudurpashchim">Sudurpashchim Province</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <select name="city" id="city" class="form-control" required>
+              <option value="">Select City</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" id="password" class="form-control" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}" placeholder="Create a strong password" autocomplete="off" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" name="RepeatPassword" id="RepeatPassword" class="form-control" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}" placeholder="Confirm your password" autocomplete="off" required>
+          </div>
+        </div>
+
+        <button type="submit" name="submit" class="btn-register"><i class="fas fa-user-plus me-2"></i>Create Account</button>
+      </form>
+      <div class="login-link">
+        <p>Already have an account? <a href="login.php">Login here</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .is-invalid { border: 2px solid red; }
+  .is-valid { border: 2px solid #28a745; }
+</style>
+
+<script>
+function updateCities() {
+  var cities = {
+    Koshi:["Biratnagar","Dharan","Itahari","Bhadrapur"],
+    Madhesh:["Janakpur","Birgunj","Kalaiya","Lahan"],
+    Bagmati:["Kathmandu","Lalitpur","Bhaktapur","Bharatpur","Hetauda"],
+    Gandaki:["Pokhara","Baglung","Gorkha","Besisahar"],
+    Lumbini:["Butwal","Bhairahawa","Nepalgunj","Tulsipur"],
+    Karnali:["Birendranagar","Jumla","Dailekh"],
+    Sudurpashchim:["Dhangadhi","Tikapur","Mahendranagar"]
+  };
+  var state = document.getElementById("state").value;
+  var citySelect = document.getElementById("city");
+  citySelect.innerHTML = '<option value="">Select City</option>';
+  if(cities[state]){
+    cities[state].forEach(function(city){
+      var opt = document.createElement("option");
+      opt.value = city;
+      opt.textContent = city;
+      citySelect.appendChild(opt);
+    });
+  }
+}
+
+document.getElementById("registrationForm").addEventListener("submit", function(e){
+  var fname = document.getElementById("fname"),
+      lname = document.getElementById("lname"),
+      email = document.getElementById("email"),
+      mobile = document.getElementById("mobile"),
+      state = document.getElementById("state"),
+      city = document.getElementById("city"),
+      password = document.getElementById("password"),
+      repeatPassword = document.getElementById("RepeatPassword"),
+      emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+\.com$/,
+      mobilePattern = /^9\d{9}$/;
+
+  // reset all invalid/valid classes
+  [fname,lname,email,mobile,state,city,password,repeatPassword].forEach(f=>f.classList.remove("is-invalid","is-valid"));
+  
+  var valid = true;
+
+  if(!fname.value.match(/^[A-Za-z]+$/)){ fname.classList.add("is-invalid"); valid = false; }
+  if(!lname.value.match(/^[A-Za-z]+$/)){ lname.classList.add("is-invalid"); valid = false; }
+  if(!emailPattern.test(email.value)){ email.classList.add("is-invalid"); valid = false; }
+  if(!mobilePattern.test(mobile.value)){ mobile.classList.add("is-invalid"); valid = false; }
+  if(state.value===""){ state.classList.add("is-invalid"); valid = false; }
+  if(city.value===""){ city.classList.add("is-invalid"); valid = false; }
+  if(password.value !== repeatPassword.value){ 
+    repeatPassword.classList.add("is-invalid");
+    valid = false; 
+  }
+
+  if(!valid) { e.preventDefault(); }
+});
+
+// live password match check
+const password = document.getElementById("password");
+const repeatPassword = document.getElementById("RepeatPassword");
+
+function validatePasswords() {
+  if (!repeatPassword.value) {
+    password.classList.remove("is-valid","is-invalid");
+    repeatPassword.classList.remove("is-valid","is-invalid");
+    return;
+  }
+
+  if(password.value === repeatPassword.value) {
+    password.classList.add("is-valid");
+    password.classList.remove("is-invalid");
+    repeatPassword.classList.add("is-valid");
+    repeatPassword.classList.remove("is-invalid");
+  } else {
+    password.classList.remove("is-valid");
+    repeatPassword.classList.add("is-invalid");
+    repeatPassword.classList.remove("is-valid");
+  }
+}
+
+password.addEventListener("input", validatePasswords);
+repeatPassword.addEventListener("input", validatePasswords);
+</script>
+
+</script>
+<style>.is-invalid{border:2px solid red!important}.is-valid{border:2px solid #28a745!important}</style>
+		
 
 	<!-- Footer Section -->
 <?php include 'include/footer.php'; ?>
 
 	<!-- Scripts -->
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstr	ap.bundle.min.js"></script>
 	<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	
 	<script>
 		// Initialize AOS animations
@@ -609,5 +690,28 @@ $RepeatPassword = $_POST['RepeatPassword'];
 			});
 		});
 	</script>
+	<?php if($error || $succmsg) { ?>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			<?php if($succmsg){ ?>
+			Swal.fire({
+				icon: "success",
+				title: "Success!",
+				text: "<?php echo htmlentities($succmsg); ?>",
+				timer: 2000,
+				showConfirmButton: false
+			}).then(() => {
+				window.location.href = 'login.php';
+			});
+			<?php } else { ?>
+			Swal.fire({
+				icon: "error",
+				title: "Oops...",
+				text: "<?php echo htmlentities($error); ?>",
+			});
+			<?php } ?>
+		});
+	</script>
+	<?php } ?>
 	</body>
 </html>
