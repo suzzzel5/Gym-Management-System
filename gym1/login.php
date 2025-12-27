@@ -168,7 +168,7 @@ if(isset($_POST['submit'])) {
 		
 		/* Login Form Container */
 		.login-form-container {
-			background: white;
+			background: 	;
 			border-radius: 25px;
 			padding: 3rem;
 			box-shadow: 0 15px 50px rgba(0,0,0,0.1);
@@ -231,27 +231,56 @@ if(isset($_POST['submit'])) {
 			color: var(--text-secondary);
 			opacity: 0.7;
 		}
-		
-		/* Buttons */
-		.btn-login {
-			background: var(--gradient-primary);
-			border: none;
-			color: white;
-			padding: 15px 40px;
-			border-radius: 25px;
-			font-weight: 600;
-			font-size: 1.1rem;
-			cursor: pointer;
-			transition: all 0.3s ease;
-			width: 100%;
-			margin-bottom: 1rem;
+
+		.login-btn{
+			background: var(--gradient-secondary);
+    color: white;
+    border: none;
+    padding: 6px 40px;
+    border-radius: 25px;
+    font-weight: 400;
+    font-size: 1.1rem;
+	 cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;            
 		}
-		
-		.btn-login:hover {
-			transform: translateY(-2px);
-			box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
-		}
-		
+
+.btn-login {
+    background: #000000;       /* Solid black background */
+    color: #4facfe;            /* White text, always visible */
+    border: none;
+    padding: 15px 40px;
+    border-radius: 25px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;                 /* Space between icon and text */
+    /* transition: all 0.3s ease; */
+}
+ 
+.btn-login i {
+    transition: transform 0.3s ease;
+}
+
+.btn-login:hover {
+    background: #1a1a1a;       /* Slightly lighter black on hover */
+    transform: translateY(-2px); /* Small lift effect */
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+.btn-login:hover i {
+    transform: translateX(5px); /* Icon slides slightly right on hover */
+}
+
+
+
 		.btn-register {
 			background: var(--gradient-secondary);
 			border: none;
@@ -268,13 +297,14 @@ if(isset($_POST['submit'])) {
 		}
 		
 		.btn-register:hover {
-			color: white;
+			color: black;
 			transform: translateY(-2px);
 			box-shadow: 0 10px 30px rgba(240, 147, 251, 0.4);
 		}
 		
 		/* Login Icon */
 		.login-icon {
+			color: black;
 			text-align: center;
 			margin-bottom: 2rem;
 		}
@@ -291,16 +321,7 @@ if(isset($_POST['submit'])) {
 			margin: 1.5rem 0;
 			position: relative;
 		}
-		
-		.form-divider::before {
-			content: '';
-			position: absolute;
-			top: 50%;
-			left: 0;
-			right: 0;
-			height: 1px;
-			background: #e5e7eb;
-		}
+
 		
 		.form-divider span {
 			background: white;
@@ -357,14 +378,7 @@ if(isset($_POST['submit'])) {
 	<?php include 'include/header.php';?>
 
 	<!-- Page Header -->
-	<section class="page-header">
-		<div class="container">
-			<div class="page-header-content" data-aos="fade-up">
-				<h1 class="page-title">Welcome Back</h1>
-				<p class="page-subtitle">Login to your Elite Fitness account and continue your fitness journey</p>
-			</div>
-		</div>
-	</section>
+
 
 	<!-- Login Section -->
 	<section class="login-section">
@@ -403,11 +417,9 @@ if(isset($_POST['submit'])) {
 						<label class="form-label">Password</label>
 						<input type="password" name="password" id="password" class="form-control" placeholder="Enter your password" autocomplete="off" required>
 							</div>
-							
-					<button type="submit" id="submit" name="submit" class="btn-login">
+					<button type="submit" id="submit" name="submit" class="login-btn">
 						<i class="fas fa-sign-in-alt me-2"></i>Login
 					</button>
-					
 					<div class="form-divider">
 						<span>New to Elite Fitness?</span>
 				</div>
@@ -426,6 +438,7 @@ if(isset($_POST['submit'])) {
 	<!-- Scripts -->
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 	<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	
 	<script>
 		// Initialize AOS animations
@@ -473,5 +486,16 @@ if(isset($_POST['submit'])) {
 			}
 		});
 	</script>
+	<?php if($error || $msg) { ?>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			Swal.fire({
+				icon: "error",
+				title: "Oops...",
+				text: "<?php echo htmlentities($error ? $error : $msg); ?>",
+			});
+		});
+	</script>
+	<?php } ?>
 	</body>
 </html>
