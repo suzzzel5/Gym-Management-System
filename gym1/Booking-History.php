@@ -11,6 +11,12 @@ $uid = $_SESSION['uid'];
 $msg = "";
 $error = "";
 
+// Check for booking success message from session
+if(isset($_SESSION['booking_success'])) {
+    $msg = $_SESSION['booking_success'];
+    unset($_SESSION['booking_success']);
+}
+
 // Handle delete booking
 if(isset($_POST['delete_booking'])) {
     $booking_id = $_POST['booking_id'];
@@ -489,16 +495,6 @@ if(isset($_POST['delete_booking'])) {
 <body>
 	<!-- Header Section -->
 	<?php include 'include/header.php';?>
-	                                                                              
-	<!-- Page Header -->
-	<section class="page-header">
-		<div class="container">
-			<div class="page-header-content" data-aos="fade-up">
-				<h1 class="page-title">My Bookings</h1>
-				<p class="page-subtitle">Track your fitness journey and manage your package subscriptions</p>
-			</div>
-		</div>
-	</section>
 
 	<!-- Booking Section -->
 	<section class="booking-section">
@@ -525,20 +521,94 @@ if(isset($_POST['delete_booking'])) {
 				<div class="col-lg-12">
 					<?php
 					$uid = $_SESSION['uid'];
-					$sql = "SELECT t1.id as bookingid, t3.fname as Name, t3.email as email, t1.booking_date as bookingdate, t2.titlename as title, t2.PackageDuratiobn as PackageDuratiobn,
-					t2.Price as Price, t2.Description as Description, t4.category_name as category_name, t5.PackageName as PackageName FROM tblbooking as t1
-					left join tbladdpackage as t2 on t1.package_id = t2.id
-					left join tbluser as t3 on t1.userid = t3.id
-					left join tblcategory as t4 on t2.category = t4.id
-					left join tblpackage as t5 on t2.PackageType = t5.id
-					where t1.userid = :uid ORDER BY t1.booking_date DESC";
-					$query = $dbh->prepare($sql);
-					$query->bindParam(':uid', $uid, PDO::PARAM_STR);
-					$query->execute();
-					$results = $query->fetchAll(PDO::FETCH_OBJ);
+					// Convert uid to string for proper matching with VARCHAR column
+					$uid = (string)$uid;
+					
+					// Check if status column exists
+					$hasStatusColumn = false;
+					try {
+						$checkColSql = "SHOW COLUMNS FROM tblbooking LIKE 'status'";
+						$checkColQuery = $dbh->query($checkColSql);
+						$hasStatusColumn = ($checkColQuery->rowCount() > 0);
+					} catch (PDOException $e) {
+						$hasStatusColumn = false;
+					}
+					
+					// Build query based on whether status column exists
+					if($hasStatusColumn) {
+						$sql = "SELECT t1.id as bookingid, COALESCE(t1.status, 'pending') as status, 
+								t3.fname as Name, t3.email as email, t1.booking_date as bookingdate, 
+								t2.titlename as title, t2.PackageDuratiobn as PackageDuratiobn,
+								t2.Price as Price, t2.Description as Description, 
+								t4.category_name as category_name, t5.PackageName as PackageName 
+								FROM tblbooking as t1
+								LEFT JOIN tbladdpackage as t2 ON t1.package_id = t2.id
+								LEFT JOIN tbluser as t3 ON t1.userid = t3.id
+								LEFT JOIN tblcategory as t4 ON t2.category = t4.id
+								LEFT JOIN tblpackage as t5 ON t2.PackageType = t5.id
+								WHERE t1.userid = :uid 
+								ORDER BY t1.booking_date DESC";
+					} else {
+						$sql = "SELECT t1.id as bookingid, 'pending' as status, 
+								t3.fname as Name, t3.email as email, t1.booking_date as bookingdate, 
+								t2.titlename as title, t2.PackageDuratiobn as PackageDuratiobn,
+								t2.Price as Price, t2.Description as Description, 
+								t4.category_name as category_name, t5.PackageName as PackageName 
+								FROM tblbooking as t1
+								LEFT JOIN tbladdpackage as t2 ON t1.package_id = t2.id
+								LEFT JOIN tbluser as t3 ON t1.userid = t3.id
+								LEFT JOIN tblcategory as t4 ON t2.category = t4.id
+								LEFT JOIN tblpackage as t5 ON t2.PackageType = t5.id
+								WHERE t1.userid = :uid 
+								ORDER BY t1.booking_date DESC";
+					}
+					
+					$results = [];
 					$cnt = 1;
 					
-					if($query->rowCount() > 0) {
+					try {
+						$query = $dbh->prepare($sql);
+						$query->bindParam(':uid', $uid, PDO::PARAM_STR);
+						$query->execute();
+						$results = $query->fetchAll(PDO::FETCH_OBJ);
+						
+						// Debug: If no results, check if bookings exist at all
+						if(isset($_GET['debug']) && count($results) == 0) {
+							$testSql = "SELECT t1.id, t1.package_id, t1.userid, t2.id as package_exists, t2.titlename 
+										FROM tblbooking as t1 
+										LEFT JOIN tbladdpackage as t2 ON t1.package_id = t2.id 
+										WHERE t1.userid = :uid LIMIT 5";
+							$testQuery = $dbh->prepare($testSql);
+							$testQuery->bindParam(':uid', $uid, PDO::PARAM_STR);
+							$testQuery->execute();
+							$testResults = $testQuery->fetchAll(PDO::FETCH_OBJ);
+							echo "<div class='alert alert-warning'>Debug: Found " . count($testResults) . " raw booking(s). ";
+							if(count($testResults) > 0) {
+								echo "First booking: ID=" . $testResults[0]->id . ", package_id=" . $testResults[0]->package_id . ", package_exists=" . ($testResults[0]->package_exists ? 'Yes' : 'No');
+							}
+							echo "</div>";
+						}
+					} catch (PDOException $e) {
+						// Log the error for debugging
+						error_log("Booking History Query Error: " . $e->getMessage());
+						$error = "Error loading bookings. Please try again later.";
+						if(isset($_GET['debug'])) {
+							$error .= " Error: " . $e->getMessage() . " | SQL: " . $sql;
+						}
+					}
+					
+					// Debug: Check if bookings exist for this user (add ?debug=1 to URL to see)
+					if(isset($_GET['debug'])) {
+						$debugSql = "SELECT COUNT(*) as total FROM tblbooking WHERE userid = :uid";
+						$debugQuery = $dbh->prepare($debugSql);
+						$debugQuery->bindParam(':uid', $uid, PDO::PARAM_STR);
+						$debugQuery->execute();
+						$debugResult = $debugQuery->fetch(PDO::FETCH_OBJ);
+						echo "<div class='alert alert-info'>Debug: Found " . ($debugResult->total ?? 0) . " booking(s) for user ID: " . htmlentities($uid) . " | Results count: " . count($results) . "</div>";
+					}
+					
+					// Check if we have results
+					if(count($results) > 0) {
 					?>
 					
 					<div class="booking-table-container" data-aos="fade-up">
@@ -551,6 +621,7 @@ if(isset($_POST['delete_booking'])) {
 									<th>Duration</th>
 									<th>Price</th>
 									<th>Booking Date</th>
+									<th>Status</th>
 									<th>Actions</th>
       </tr>
     </thead>
@@ -559,21 +630,43 @@ if(isset($_POST['delete_booking'])) {
 								<tr>
 									<td data-label="Sr. No"><?php echo $cnt; ?></td>
 									<td data-label="Package Details">
-										<div class="package-title"><?php echo htmlentities($result->title); ?></div>
+										<div class="package-title"><?php echo htmlentities($result->title ?? 'N/A'); ?></div>
+										<?php if(!empty($result->category_name)): ?>
 										<div class="package-category"><?php echo htmlentities($result->category_name); ?></div>
+										<?php endif; ?>
+										<?php if(!empty($result->Description)): ?>
 										<div class="package-description"><?php echo htmlentities($result->Description); ?></div>
+										<?php endif; ?>
 									</td>
 									<td data-label="Category">
-										<span class="package-category"><?php echo htmlentities($result->category_name); ?></span>
+										<span class="package-category"><?php echo htmlentities($result->category_name ?? 'N/A'); ?></span>
 									</td>
 									<td data-label="Duration">
-										<span class="package-duration"><?php echo htmlentities($result->PackageDuratiobn); ?></span>
+										<span class="package-duration"><?php echo htmlentities($result->PackageDuratiobn ?? 'N/A'); ?></span>
 									</td>
 									<td data-label="Price">
-										<span class="package-price">RS <?php echo htmlentities($result->Price); ?></span>
+										<span class="package-price">RS <?php echo htmlentities($result->Price ?? '0'); ?></span>
 									</td>
 									<td data-label="Booking Date">
-										<span class="booking-date"><?php echo date('M d, Y', strtotime($result->bookingdate)); ?></span>
+										<span class="booking-date"><?php 
+											if(!empty($result->bookingdate)) {
+												echo date('M d, Y', strtotime($result->bookingdate));
+											} else {
+												echo 'N/A';
+											}
+										?></span>
+									</td>
+									<td data-label="Status">
+										<?php 
+											$status = isset($result->status) ? $result->status : 'pending';
+											if($status == 'pending') {
+												echo "<span style='background: #f59e0b; color: white; padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; font-weight: 500;'><i class='fas fa-clock me-1'></i>Pending</span>";
+											} elseif($status == 'accepted') {
+												echo "<span style='background: #10b981; color: white; padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; font-weight: 500;'><i class='fas fa-check-circle me-1'></i>Accepted</span>";
+											} elseif($status == 'declined') {
+												echo "<span style='background: #ef4444; color: white; padding: 5px 12px; border-radius: 15px; font-size: 0.85rem; font-weight: 500;'><i class='fas fa-times-circle me-1'></i>Declined</span>";
+											}
+										?>
 									</td>
 									<td data-label="Actions">
 										<div class="action-buttons">
