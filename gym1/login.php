@@ -168,7 +168,7 @@ if(isset($_POST['submit'])) {
 		
 		/* Login Form Container */
 		.login-form-container {
-			background: 	;
+			background: white;
 			border-radius: 25px;
 			padding: 3rem;
 			box-shadow: 0 15px 50px rgba(0,0,0,0.1);
@@ -371,6 +371,24 @@ if(isset($_POST['submit'])) {
 			box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 			font-weight: 500;
 		}
+		
+		/* Error Message Below Fields */
+		.error-message {
+			color: var(--accent-color);
+			font-size: 0.85rem;
+			margin-top: 5px;
+			display: none;
+			min-height: 20px;
+		}
+		
+		.error-message.show {
+			display: block;
+		}
+		
+		.form-control.error-field {
+			border-color: var(--accent-color);
+			box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+		}
 	</style>
 </head>
 <body>
@@ -399,24 +417,26 @@ if(isset($_POST['submit'])) {
 					<div class="errorWrap">
 						<i class="fas fa-exclamation-triangle me-2"></i>
 						<strong>Error:</strong> <?php echo htmlentities($error); ?>
-						</div>
+					</div>
 				<?php } else if($msg){ ?>
 					<div class="errorWrap">
 						<i class="fas fa-exclamation-circle me-2"></i>
 						<strong>Error:</strong> <?php echo htmlentities($msg); ?>
-						</div>
+					</div>
 				<?php } ?>
 				
-				<form method="post" class="login-form">
+				<form method="post" class="login-form" id="loginForm">
 					<div class="form-group">
 						<label class="form-label">Email Address</label>
-						<input type="email" name="email" id="email" class="form-control" placeholder="Enter your email address" autocomplete="off" required>
-							</div>
+						<input type="email" name="email" id="email" class="form-control" placeholder="Enter your email address" autocomplete="off" value="<?php echo isset($_POST['email']) ? htmlentities($_POST['email']) : ''; ?>" required>
+						<div class="error-message" id="email-error"></div>
+					</div>
 					
 					<div class="form-group">
 						<label class="form-label">Password</label>
 						<input type="password" name="password" id="password" class="form-control" placeholder="Enter your password" autocomplete="off" required>
-							</div>
+						<div class="error-message" id="password-error"></div>
+					</div>
 					<button type="submit" id="submit" name="submit" class="login-btn">
 						<i class="fas fa-sign-in-alt me-2"></i>Login
 					</button>
@@ -438,7 +458,6 @@ if(isset($_POST['submit'])) {
 	<!-- Scripts -->
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 	<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	
 	<script>
 		// Initialize AOS animations
@@ -447,6 +466,27 @@ if(isset($_POST['submit'])) {
 			easing: 'ease-in-out',
 			once: true
 		});
+		
+		// Error message functions
+		function showError(fieldId, message) {
+			var field = document.getElementById(fieldId);
+			var errorDiv = document.getElementById(fieldId + "-error");
+			if(errorDiv) {
+				errorDiv.textContent = message;
+				errorDiv.classList.add("show");
+				field.classList.add("error-field");
+			}
+		}
+		
+		function clearError(fieldId) {
+			var field = document.getElementById(fieldId);
+			var errorDiv = document.getElementById(fieldId + "-error");
+			if(errorDiv) {
+				errorDiv.textContent = "";
+				errorDiv.classList.remove("show");
+				field.classList.remove("error-field");
+			}
+		}
 		
 		// Form enhancement
 		document.addEventListener('DOMContentLoaded', function() {
@@ -461,41 +501,58 @@ if(isset($_POST['submit'])) {
 				input.addEventListener('blur', function() {
 					this.parentElement.style.transform = 'scale(1)';
 				});
+				
+				// Clear errors on input
+				input.addEventListener('input', function() {
+					clearError(this.id);
+				});
 			});
 			
 			// Form validation
-			const form = document.querySelector('.login-form');
+			const form = document.getElementById('loginForm');
 			if (form) {
 				form.addEventListener('submit', function(e) {
 					const email = document.getElementById('email').value.trim();
 					const password = document.getElementById('password').value.trim();
+					const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
 					
-					if (!email || !password) {
-						e.preventDefault();
-						alert('Please fill in all required fields.');
-						return false;
+					// Clear all errors first
+					clearError('email');
+					clearError('password');
+					
+					var valid = true;
+					
+					if (!email) {
+						showError('email', 'Email address is required');
+						valid = false;
+					} else if (!emailPattern.test(email)) {
+						showError('email', 'Please enter a valid email address (for example: name@example.com)!');
+						valid = false;
 					}
 					
-					if (!email.includes('@')) {
+					if (!password) {
+						showError('password', 'Password is required');
+						valid = false;
+					}
+					
+					if (!valid) {
 						e.preventDefault();
-						alert('Please enter a valid email address.');
-						document.getElementById('email').focus();
+						// Scroll to first error
+						var firstError = document.querySelector(".error-message.show");
+						if(firstError) {
+							firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+						}
 						return false;
 					}
 				});
 			}
+			
+			// Show server-side errors below fields
+			<?php if($msg && !$error) { ?>
+				// If it's a login error (invalid credentials), show it below password field
+				showError('password', '<?php echo htmlentities($msg); ?>');
+			<?php } ?>
 		});
 	</script>
-	<?php if($error || $msg) { ?>
-	<script>
-		document.addEventListener('DOMContentLoaded', function() {
-			Swal.fire({
-				icon: "error",
-				title: "Oops...",
-				text: "<?php echo htmlentities($error ? $error : $msg); ?>",
-			});
-		});
-	</script>
-	<?php } ?>
 	</body>
 </html>
