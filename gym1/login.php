@@ -1,50 +1,98 @@
-
 <?php
-session_start();
 error_reporting(0);
 require_once('include/config.php');
 
-$msg = ""; 
+$fname = "";
+$lname = "";
+$mobile = "";
+$email = "";
+$state = "";
+$city = "";
 $error = "";
+$succmsg = "";
 
-if(isset($_POST['submit'])) {
-  $email = trim($_POST['email']);
-  $password = md5(($_POST['password']));
+if(isset($_POST['submit'])) { 
+    $fname = trim($_POST['fname']);
+    $lname = trim($_POST['lname']);
+    $mobile = trim($_POST['mobile']);
+    $email = trim($_POST['email']);
+    $state = trim($_POST['state']);
+    $city = trim($_POST['city']);
+    $Password = $_POST['password'];
+    $pass = md5($Password);
+$RepeatPassword = $_POST['RepeatPassword'];
+
+// Email id Already Exit
+    $usermatch = $dbh->prepare("SELECT mobile, email FROM tbluser WHERE (email=:usreml || mobile=:mblenmbr)");
+    $usermatch->execute(array(':usreml'=>$email, ':mblenmbr'=>$mobile)); 
     
-  if($email != "" && $password != "") {
-    try {
-            $query = "SELECT id, fname, lname, email, mobile, password, address, create_date FROM tbluser WHERE email=:email AND password=:password";
-      $stmt = $dbh->prepare($query);
-      $stmt->bindParam('email', $email, PDO::PARAM_STR);
-      $stmt->bindValue('password', $password, PDO::PARAM_STR);
-      $stmt->execute();
-      $count = $stmt->rowCount();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-      if($count == 1 && !empty($row)) {
-                $_SESSION['uid'] = $row['id'];
-        $_SESSION['email'] = $row['email'];
-        $_SESSION['name'] = $row['fname'];
-       header("location: index.php");
-                exit();
-      } else {
-                $msg = "Invalid email or password!";
-      }
-    } catch (PDOException $e) {
-            $error = "Database error. Please try again.";
+    $usrdbeml = "";
+    $usrdbmble = "";
+    
+    while($row = $usermatch->fetch(PDO::FETCH_ASSOC)) {
+        $usrdbeml = $row['email'];
+        $usrdbmble = $row['mobile'];
     }
-  } else {
-    $msg = "Both fields are required!";
-  }
+
+    if(empty($fname)) {
+        $error = "Please Enter First Name";
+    } else if(empty($mobile)) {
+        $error = "Please Enter Mobile No";
+    } else if(empty($email)) {
+        $error = "Please Enter Email";
+    } else if(!preg_match("/\.com$/i", $email)) {
+        $error = "Email address must end with .com";
+    } else if($email == $usrdbeml || $mobile == $usrdbmble) {
+        $error = "Email Id or Mobile Number Already Exists!";
+    } else if($Password == "" || $RepeatPassword == "") {
+        $error = "Password And Confirm Password Cannot Be Empty!";
+    } else if($_POST['password'] != $_POST['RepeatPassword']) {
+        $error = "Password And Confirm Password Do Not Match";
+    } else {
+        $sql = "INSERT INTO tbluser (fname, lname, email, mobile, state, city, password) VALUES (:fname, :lname, :email, :mobile, :state, :city, :Password)";
+        
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':fname', $fname, PDO::PARAM_STR);
+        $query->bindParam(':lname', $lname, PDO::PARAM_STR);
+        $query->bindParam(':email', $email, PDO::PARAM_STR);
+        $query->bindParam(':mobile', $mobile, PDO::PARAM_STR);
+        $query->bindParam(':state', $state, PDO::PARAM_STR);
+        $query->bindParam(':city', $city, PDO::PARAM_STR);
+        $query->bindParam(':Password', $pass, PDO::PARAM_STR);
+        
+        if($query->execute()) {
+            $lastInsertId = $dbh->lastInsertId();
+            if($lastInsertId > 0) {
+                $succmsg = "Registration successful! Please login to continue.";
+                // Send welcome email (best-effort)
+                @include_once __DIR__ . '/include/mailer.php';
+                $fullName = trim($fname . ' ' . $lname);
+                $subject = 'Welcome to FIT TRACK HUB';
+                $body = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6">'
+                    .'<h2 style="margin:0 0 10px;color:#111827;">Welcome, '.htmlentities($fullName).'</h2>'
+                    .'<p>Thank you for registering at FIT TRACK HUB. Your account has been created successfully.</p>'
+                    .'<p>You can now log in and manage your bookings.</p>'
+                    .'<p style="margin-top:18px;color:#6b7280;">— FIT TRACK HUB Team</p>'
+                    .'</div>';
+                if (function_exists('sendMail')) { @sendMail($email, $subject, $body, $fullName); }
+                // Clear form data after successful registration
+                $fname = $lname = $mobile = $email = $state = $city = "";
+            } else {
+                $error = "Registration was not successful. Please try again.";
+            }
+        } else {
+            $error = "Database error occurred. Please try again.";
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<title>Login | Elite Fitness</title>
+	<title>Registration | Elite Fitness</title>
 	<meta charset="UTF-8">
-	<meta name="description" content="Login to your Elite Fitness account - Access your fitness journey and manage your memberships">
-	<meta name="keywords" content="login, fitness, gym, membership, account">
+	<meta name="description" content="Join Elite Fitness - Create your account and start your fitness journey today">
+	<meta name="keywords" content="registration, signup, fitness, gym, membership, account">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	
 	<!-- Google Fonts -->
@@ -139,8 +187,8 @@ if(isset($_POST['submit'])) {
 			margin: 0 auto;
 		}
 		
-		/* Login Section */
-		.login-section {
+		/* Registration Section */
+		.registration-section {
 			padding: 80px 0;
 			background: white;
 		}
@@ -166,8 +214,8 @@ if(isset($_POST['submit'])) {
 			margin: 0 auto;
 		}
 		
-		/* Login Form Container */
-		.login-form-container {
+		/* Registration Form Container */
+		.registration-form-container {
 			background: white;
 			border-radius: 25px;
 			padding: 3rem;
@@ -175,11 +223,11 @@ if(isset($_POST['submit'])) {
 			border: 1px solid rgba(0,0,0,0.05);
 			position: relative;
 			overflow: hidden;
-			max-width: 500px;
+			max-width: 800px;
 			margin: 0 auto;
 		}
 		
-		.login-form-container::before {
+		.registration-form-container::before {
 			content: '';
 			position: absolute;
 			top: 0;
@@ -231,103 +279,93 @@ if(isset($_POST['submit'])) {
 			color: var(--text-secondary);
 			opacity: 0.7;
 		}
-
-		.login-btn{
-			background: var(--gradient-secondary);
-    color: white;
-    border: none;
-    padding: 6px 40px;
-    border-radius: 25px;
-    font-weight: 400;
-    font-size: 1.1rem;
-	 cursor: pointer;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;            
+		
+		.form-control.error {
+			border-color: var(--accent-color);
+			box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 		}
-
-.btn-login {
-    background: #000000;       /* Solid black background */
-    color: #4facfe;            /* White text, always visible */
-    border: none;
-    padding: 15px 40px;
-    border-radius: 25px;
-    font-weight: 600;
-    font-size: 1.1rem;
-    cursor: pointer;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;                 /* Space between icon and text */
-    /* transition: all 0.3s ease; */
-}
- 
-.btn-login i {
-    transition: transform 0.3s ease;
-}
-
-.btn-login:hover {
-    background: #1a1a1a;       /* Slightly lighter black on hover */
-    transform: translateY(-2px); /* Small lift effect */
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-}
-
-.btn-login:hover i {
-    transform: translateX(5px); /* Icon slides slightly right on hover */
-}
-
-
-
+		
+		.form-control.success {
+			border-color: #10b981;
+			box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+		}
+		
+		/* Form Row */
+		.form-row {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 1.5rem;
+		}
+		
+		@media (max-width: 768px) {
+			.form-row {
+				grid-template-columns: 1fr;
+			}
+		}
+		
+		/* Password Strength Indicator */
+		.password-strength {
+			margin-top: 0.5rem;
+			font-size: 0.85rem;
+		}
+		
+		.strength-weak { color: var(--accent-color); }
+		.strength-medium { color: var(--secondary-color); }
+		.strength-strong { color: #10b981; }
+		
+		/* Submit Button */
 		.btn-register {
 			background: var(--gradient-secondary);
 			border: none;
 			color: white;
-			padding: 15px 40px;
+			padding: 18px 50px;
 			border-radius: 25px;
 			font-weight: 600;
-			font-size: 1.1rem;
-			text-decoration: none;
-			display: block;
-			text-align: center;
+			font-size: 1.2rem;
+			cursor: pointer;
 			transition: all 0.3s ease;
 			width: 100%;
+			margin-top: 1rem;
 		}
 		
 		.btn-register:hover {
-			color: black;
 			transform: translateY(-2px);
 			box-shadow: 0 10px 30px rgba(240, 147, 251, 0.4);
 		}
 		
-		/* Login Icon */
-		.login-icon {
-			color: black;
+		.btn-register:active {
+			transform: translateY(0);
+		}
+		
+		/* Registration Icon */
+		.registration-icon {
 			text-align: center;
 			margin-bottom: 2rem;
 		}
 		
-		.login-icon i {
+		.registration-icon i {
 			font-size: 4rem;
 			color: var(--primary-color);
 			opacity: 0.8;
 		}
 		
-		/* Divider */
-		.form-divider {
+		/* Login Link */
+		.login-link {
 			text-align: center;
-			margin: 1.5rem 0;
-			position: relative;
+			margin-top: 2rem;
+			padding-top: 2rem;
+			border-top: 1px solid #e5e7eb;
 		}
-
 		
-		.form-divider span {
-			background: white;
-			padding: 0 1rem;
-			color: var(--text-secondary);
-			font-size: 0.9rem;
+		.login-link a {
+			color: var(--primary-color);
+			text-decoration: none;
+			font-weight: 500;
+			transition: color 0.3s ease;
+		}
+		
+		.login-link a:hover {
+			color: var(--secondary-color);
 		}
 		
 		/* Responsive Design */
@@ -340,7 +378,7 @@ if(isset($_POST['submit'])) {
 				font-size: 2rem;
 			}
 			
-			.login-form-container {
+			.registration-form-container {
 				padding: 2rem;
 				margin: 0 -15px;
 				border-radius: 15px;
@@ -394,66 +432,337 @@ if(isset($_POST['submit'])) {
 <body>
 	<!-- Header Section -->
 	<?php include 'include/header.php';?>
-
+	                                                                              
 	<!-- Page Header -->
-
-
-	<!-- Login Section -->
-	<section class="login-section">
+	<section class="page-header">
 		<div class="container">
-			<div class="section-header" data-aos="fade-up">
-				<h2 class="section-title">Account Access</h2>
-				<p class="section-subtitle">Enter your credentials to access your fitness dashboard</p>
-			</div>
-			
-			<div class="login-form-container" data-aos="fade-up" data-aos-delay="200">
-				<div class="login-icon">
-					<i class="fas fa-user-circle"></i>
-				</div>
-				
-				<h3 class="form-title">User Login</h3>
-				
-				<?php if($error){ ?>
-					<div class="errorWrap">
-						<i class="fas fa-exclamation-triangle me-2"></i>
-						<strong>Error:</strong> <?php echo htmlentities($error); ?>
-					</div>
-				<?php } else if($msg){ ?>
-					<div class="errorWrap">
-						<i class="fas fa-exclamation-circle me-2"></i>
-						<strong>Error:</strong> <?php echo htmlentities($msg); ?>
-					</div>
-				<?php } ?>
-				
-				<form method="post" class="login-form" id="loginForm">
-					<div class="form-group">
-						<label class="form-label">Email Address</label>
-						<input type="email" name="email" id="email" class="form-control" placeholder="Enter your email address" autocomplete="off" value="<?php echo isset($_POST['email']) ? htmlentities($_POST['email']) : ''; ?>" required>
-						<div class="error-message" id="email-error"></div>
-					</div>
-					
-					<div class="form-group">
-						<label class="form-label">Password</label>
-						<input type="password" name="password" id="password" class="form-control" placeholder="Enter your password" autocomplete="off" required>
-						<div class="error-message" id="password-error"></div>
-					</div>
-					<button type="submit" id="submit" name="submit" class="login-btn">
-						<i class="fas fa-sign-in-alt me-2"></i>Login
-					</button>
-					<div class="form-divider">
-						<span>New to Elite Fitness?</span>
-				</div>
-	
-					<a href="registration.php" class="btn-register">
-						<i class="fas fa-user-plus me-2"></i>Create Account
-					</a>
-</form>
+			<div class="page-header-content" data-aos="fade-up">
+				<h1 class="page-title">Join Elite Fitness</h1>
+				<p class="page-subtitle">Create your account and start your fitness journey today</p>
 			</div>
 		</div>
 	</section>
-	
+
+<!-- Registration Section -->
+<!-- Registration Section -->
+<section class="registration-section">
+  <div class="container">
+    <div class="section-header" data-aos="fade-up">
+      <h2 class="section-title">Create Account</h2>
+      <p class="section-subtitle">Fill in your details to create your Elite Fitness membership</p>
+    </div>
+    <div class="registration-form-container" data-aos="fade-up" data-aos-delay="200">
+      <div class="registration-icon"><i class="fas fa-user-plus"></i></div>
+      <h3 class="form-title">Registration Form</h3>
+      
+      <!-- Error/Success Messages -->
+      <?php if($error){ ?>
+        <div class="errorWrap">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          <strong>Error:</strong> <?php echo htmlentities($error); ?>
+        </div>
+      <?php } else if($succmsg){ ?>
+        <div class="succWrap">
+          <i class="fas fa-check-circle me-2"></i>
+          <strong>Success:</strong> <?php echo htmlentities($succmsg); ?>
+        </div>
+      <?php } ?>
+      
+      <form id="registrationForm" class="registration-form" method="post" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" name="fname" id="fname" class="form-control" placeholder="Enter your first name" pattern="[A-Za-z]+" autocomplete="off" value="<?php echo htmlentities($fname); ?>" required>
+            <div class="error-message" id="fname-error"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="lname" id="lname" class="form-control" placeholder="Enter your last name" pattern="[A-Za-z]+" autocomplete="off" value="<?php echo htmlentities($lname); ?>" required>
+            <div class="error-message" id="lname-error"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" name="email" id="email" class="form-control" placeholder="example@domain.com" autocomplete="off" value="<?php echo htmlentities($email); ?>" required>
+            <div class="error-message" id="email-error"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mobile Number</label>
+            <input type="text" name="mobile" id="mobile" class="form-control" maxlength="10" placeholder="9XXXXXXXXX" pattern="9[0-9]{9}" autocomplete="off" value="<?php echo htmlentities($mobile); ?>" required>
+            <div class="error-message" id="mobile-error"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">State</label>
+            <select name="state" id="state" class="form-control" required onchange="updateCities()">
+              <option value="">Select Province</option>
+              <option value="Koshi" <?php echo ($state == 'Koshi') ? 'selected' : ''; ?>>Koshi Province</option>
+              <option value="Madhesh" <?php echo ($state == 'Madhesh') ? 'selected' : ''; ?>>Madhesh Province</option>
+              <option value="Bagmati" <?php echo ($state == 'Bagmati') ? 'selected' : ''; ?>>Bagmati Province</option>
+              <option value="Gandaki" <?php echo ($state == 'Gandaki') ? 'selected' : ''; ?>>Gandaki Province</option>
+              <option value="Lumbini" <?php echo ($state == 'Lumbini') ? 'selected' : ''; ?>>Lumbini Province</option>
+              <option value="Karnali" <?php echo ($state == 'Karnali') ? 'selected' : ''; ?>>Karnali Province</option>
+              <option value="Sudurpashchim" <?php echo ($state == 'Sudurpashchim') ? 'selected' : ''; ?>>Sudurpashchim Province</option>
+            </select>
+            <div class="error-message" id="state-error"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <select name="city" id="city" class="form-control" required>
+              <option value="">Select City</option>
+            </select>
+            <div class="error-message" id="city-error"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" id="password" class="form-control" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}" placeholder="Create a strong password" autocomplete="off" required>
+            <div class="error-message" id="password-error"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password</label>
+            <input type="password" name="RepeatPassword" id="RepeatPassword" class="form-control" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,}" placeholder="Confirm your password" autocomplete="off" required>
+            <div class="error-message" id="RepeatPassword-error"></div>
+          </div>
+        </div>
+
+        <button type="submit" name="submit" class="btn-register"><i class="fas fa-user-plus me-2"></i>Create Account</button>
+      </form>
+      <div class="login-link">
+        <p>Already have an account? <a href="login.php">Login here</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .is-invalid { border: 2px solid red; }
+  .is-valid { border: 2px solid #28a745; }
+</style>
+
+<script>
+function updateCities() {
+  var cities = {
+    Koshi:["Biratnagar","Dharan","Itahari","Bhadrapur"],
+    Madhesh:["Janakpur","Birgunj","Kalaiya","Lahan"],
+    Bagmati:["Kathmandu","Lalitpur","Bhaktapur","Bharatpur","Hetauda"],
+    Gandaki:["Pokhara","Baglung","Gorkha","Besisahar"],
+    Lumbini:["Butwal","Bhairahawa","Nepalgunj","Tulsipur"],
+    Karnali:["Birendranagar","Jumla","Dailekh"],
+    Sudurpashchim:["Dhangadhi","Tikapur","Mahendranagar"]
+  };
+  var state = document.getElementById("state").value;
+  var citySelect = document.getElementById("city");
+  var selectedCity = "<?php echo htmlentities($city); ?>";
+  citySelect.innerHTML = '<option value="">Select City</option>';
+  if(cities[state]){
+    cities[state].forEach(function(city){
+      var opt = document.createElement("option");
+      opt.value = city;
+      opt.textContent = city;
+      if(city === selectedCity) {
+        opt.selected = true;
+      }
+      citySelect.appendChild(opt);
+    });
+  }
+}
+
+// Populate city on page load if state is selected
+document.addEventListener('DOMContentLoaded', function() {
+  var stateValue = document.getElementById("state").value;
+  if(stateValue) {
+    updateCities();
+  }
+});
+
+function showError(fieldId, message) {
+  var field = document.getElementById(fieldId);
+  var errorDiv = document.getElementById(fieldId + "-error");
+  if(errorDiv) {
+    errorDiv.textContent = message;
+    errorDiv.classList.add("show");
+    field.classList.add("error-field");
+  }
+}
+
+function clearError(fieldId) {
+  var field = document.getElementById(fieldId);
+  var errorDiv = document.getElementById(fieldId + "-error");
+  if(errorDiv) {
+    errorDiv.textContent = "";
+    errorDiv.classList.remove("show");
+    field.classList.remove("error-field");
+  }
+}
+
+document.getElementById("registrationForm").addEventListener("submit", function(e){
+  var fname = document.getElementById("fname"),
+      lname = document.getElementById("lname"),
+      email = document.getElementById("email"),
+      mobile = document.getElementById("mobile"),
+      state = document.getElementById("state"),
+      city = document.getElementById("city"),
+      password = document.getElementById("password"),
+      repeatPassword = document.getElementById("RepeatPassword"),
+      emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+\.com$/,
+      mobilePattern = /^9\d{9}$/;
+
+  // Clear all errors first
+  [fname,lname,email,mobile,state,city,password,repeatPassword].forEach(function(f){
+    clearError(f.id);
+    f.classList.remove("is-invalid","is-valid", "error-field");
+  });
+  
+  var valid = true;
+
+  if(!fname.value.trim()){ 
+    showError("fname", "First name is required");
+    fname.classList.add("is-invalid");
+    valid = false; 
+  } else if(!fname.value.match(/^[A-Za-z]+$/)){ 
+    showError("fname", "First name must contain only letters");
+    fname.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(!lname.value.trim()){ 
+    showError("lname", "Last name is required");
+    lname.classList.add("is-invalid");
+    valid = false; 
+  } else if(!lname.value.match(/^[A-Za-z]+$/)){ 
+    showError("lname", "Last name must contain only letters");
+    lname.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(!email.value.trim()){ 
+    showError("email", "Email is required");
+    email.classList.add("is-invalid");
+    valid = false; 
+  } else if(!emailPattern.test(email.value)){ 
+    showError("email", "Please enter a valid email address (for example: name@example.com)!");
+    email.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(!mobile.value.trim()){ 
+    showError("mobile", "The phone number should be 10 digit-start with 9 !");
+    mobile.classList.add("is-invalid");
+    valid = false; 
+  } else if(!mobilePattern.test(mobile.value)){ 
+    showError("mobile", "Mobile must start with 9 and be 10 digits");
+    mobile.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(state.value===""){ 
+    showError("state", "Please select a province");
+    state.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(city.value===""){ 
+    showError("city", "Please select a city");
+    city.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(!password.value.trim()){ 
+    showError("password", "Password is required");
+    password.classList.add("is-invalid");
+    valid = false; 
+  } else if(password.value.length < 6){ 
+    showError("password", "Password must be at least 6 characters");
+    password.classList.add("is-invalid");
+    valid = false; 
+  } else if(!/(?=.*\d)(?=.*[a-z])(?=.*[A-Z])/.test(password.value)){ 
+    showError("password", "Password must contain uppercase, lowercase, and number");
+    password.classList.add("is-invalid");
+    valid = false; 
+  }
+  
+  if(!repeatPassword.value.trim()){ 
+    showError("RepeatPassword", "Please confirm your password");
+    repeatPassword.classList.add("is-invalid");
+    valid = false; 
+  } else if(password.value !== repeatPassword.value){ 
+    showError("RepeatPassword", "Passwords do not match");
+    repeatPassword.classList.add("is-invalid");
+    valid = false; 
+  }
+
+  if(!valid) { 
+    e.preventDefault();
+    // Scroll to first error
+    var firstError = document.querySelector(".error-message.show");
+    if(firstError) {
+      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+});
+
+// live password match check
+const password = document.getElementById("password");
+const repeatPassword = document.getElementById("RepeatPassword");
+
+function validatePasswords() {
+  if (!repeatPassword.value) {
+    password.classList.remove("is-valid","is-invalid", "error-field");
+    repeatPassword.classList.remove("is-valid","is-invalid", "error-field");
+    clearError("RepeatPassword");
+    return;
+  }
+
+  if(password.value === repeatPassword.value) {
+    password.classList.add("is-valid");
+    password.classList.remove("is-invalid", "error-field");
+    repeatPassword.classList.add("is-valid");
+    repeatPassword.classList.remove("is-invalid", "error-field");
+    clearError("RepeatPassword");
+  } else {
+    password.classList.remove("is-valid");
+    repeatPassword.classList.add("is-invalid", "error-field");
+    repeatPassword.classList.remove("is-valid");
+    showError("RepeatPassword", "Passwords do not match");
+  }
+}
+
+password.addEventListener("input", function() {
+  clearError("password");
+  this.classList.remove("error-field");
+  if(repeatPassword.value) {
+    validatePasswords();
+  }
+});
+
+repeatPassword.addEventListener("input", validatePasswords);
+
+// Clear errors on input
+document.querySelectorAll('.form-control, select').forEach(function(field) {
+  field.addEventListener('input', function() {
+    clearError(this.id);
+    this.classList.remove("error-field");
+  });
+  field.addEventListener('change', function() {
+    clearError(this.id);
+    this.classList.remove("error-field");
+  });
+});
+</script>
+
+</script>
+<style>.is-invalid{border:2px solid red!important}.is-valid{border:2px solid #28a745!important}</style>
+		
+
 	<!-- Footer Section -->
-	<?php include 'include/footer.php'; ?>
+<?php include 'include/footer.php'; ?>
 
 	<!-- Scripts -->
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -467,26 +776,60 @@ if(isset($_POST['submit'])) {
 			once: true
 		});
 		
-		// Error message functions
-		function showError(fieldId, message) {
-			var field = document.getElementById(fieldId);
-			var errorDiv = document.getElementById(fieldId + "-error");
-			if(errorDiv) {
-				errorDiv.textContent = message;
-				errorDiv.classList.add("show");
-				field.classList.add("error-field");
+		// Form validation
+		function validateForm() {
+			const password = document.getElementById('password').value;
+			const confirmPassword = document.getElementById('RepeatPassword').value;
+			
+			if(password !== confirmPassword) {
+				alert('Password and Confirm Password fields do not match!');
+				document.getElementById('RepeatPassword').focus();
+				return false;
 			}
+			
+			if(password.length < 6) {
+				alert('Password must be at least 6 characters long!');
+				document.getElementById('password').focus();
+				return false;
+			}
+			
+			return true;
 		}
 		
-		function clearError(fieldId) {
-			var field = document.getElementById(fieldId);
-			var errorDiv = document.getElementById(fieldId + "-error");
-			if(errorDiv) {
-				errorDiv.textContent = "";
-				errorDiv.classList.remove("show");
-				field.classList.remove("error-field");
+		// Password strength indicator
+		document.getElementById('password').addEventListener('input', function() {
+			const password = this.value;
+			const strengthDiv = document.getElementById('passwordStrength');
+			
+			if(password.length === 0) {
+				strengthDiv.textContent = '';
+				return;
 			}
-		}
+			
+			let strength = 0;
+			if(password.length >= 6) strength++;
+			if(/[a-z]/.test(password)) strength++;
+			if(/[A-Z]/.test(password)) strength++;
+			if(/[0-9]/.test(password)) strength++;
+			if(/[^A-Za-z0-9]/.test(password)) strength++;
+			
+			let strengthText = '';
+			let strengthClass = '';
+			
+			if(strength <= 2) {
+				strengthText = 'Weak password';
+				strengthClass = 'strength-weak';
+			} else if(strength <= 3) {
+				strengthText = 'Medium strength password';
+				strengthClass = 'strength-medium';
+			} else {
+				strengthText = 'Strong password';
+				strengthClass = 'strength-strong';
+			}
+			
+			strengthDiv.textContent = strengthText;
+			strengthDiv.className = 'password-strength ' + strengthClass;
+		});
 		
 		// Form enhancement
 		document.addEventListener('DOMContentLoaded', function() {
@@ -502,57 +845,28 @@ if(isset($_POST['submit'])) {
 					this.parentElement.style.transform = 'scale(1)';
 				});
 				
-				// Clear errors on input
+				// Real-time validation
 				input.addEventListener('input', function() {
-					clearError(this.id);
+					if(this.checkValidity()) {
+						this.classList.remove('error');
+						this.classList.add('success');
+					} else {
+						this.classList.remove('success');
+						this.classList.add('error');
+					}
 				});
 			});
-			
-			// Form validation
-			const form = document.getElementById('loginForm');
-			if (form) {
-				form.addEventListener('submit', function(e) {
-					const email = document.getElementById('email').value.trim();
-					const password = document.getElementById('password').value.trim();
-					const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$/;
-					
-					// Clear all errors first
-					clearError('email');
-					clearError('password');
-					
-					var valid = true;
-					
-					if (!email) {
-						showError('email', 'Email address is required');
-						valid = false;
-					} else if (!emailPattern.test(email)) {
-						showError('email', 'Please enter a valid email address (for example: name@example.com)!');
-						valid = false;
-					}
-					
-					if (!password) {
-						showError('password', 'Password is required');
-						valid = false;
-					}
-					
-					if (!valid) {
-						e.preventDefault();
-						// Scroll to first error
-						var firstError = document.querySelector(".error-message.show");
-						if(firstError) {
-							firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-						}
-						return false;
-					}
-				});
-			}
-			
-			// Show server-side errors below fields
-			<?php if($msg && !$error) { ?>
-				// If it's a login error (invalid credentials), show it below password field
-				showError('password', '<?php echo htmlentities($msg); ?>');
-			<?php } ?>
 		});
 	</script>
+	<?php if($succmsg) { ?>
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			setTimeout(function() {
+				window.location.href = 'login.php';
+			}, 2000);
+		});
+	</script>
+	<?php } ?>
 	</body>
 </html>
+
