@@ -1,6 +1,5 @@
 <?php session_start();
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+error_reporting(0);
 require_once('include/config.php');
 if(strlen($_SESSION["uid"]) == 0) {   
     header('location:login.php');
@@ -185,14 +184,6 @@ if(strlen($_SESSION["uid"]) == 0) {
     ?>
     
     <!-- Page Header -->
-    <section class="page-header">
-        <div class="container">
-            <div class="page-header-content" data-aos="fade-up">
-                <h1 class="page-title">Booking Details</h1>
-                <p class="page-subtitle">View your package booking information</p>
-            </div>
-        </div>
-    </section>
 
     <!-- Booking Details Section -->
     <section style="padding: 60px 0; background: white;">
@@ -220,25 +211,56 @@ if(strlen($_SESSION["uid"]) == 0) {
                             
                             if (!$hasError) {
                                 $bookindid = intval($_GET['bookingid']);
-                                // Fixed SQL query - removed extra space and fixed syntax
-                                $sql = "SELECT t1.id as bookingid, t1.paymentType as paymentType, t3.fname as Name, t3.email as email, 
-                                        t1.booking_date as bookingdate, t2.titlename as title, t2.PackageDuratiobn as PackageDuratiobn, 
-                                        t2.Price as Price, t2.Description as Description, t4.category_name as category_name, 
-                                        t5.PackageName as PackageName 
-                                        FROM tblbooking as t1 
-                                        LEFT JOIN tbladdpackage as t2 on t1.package_id = t2.id 
-                                        LEFT JOIN tbluser as t3 on t1.userid = t3.id 
-                                        LEFT JOIN tblcategory as t4 on t2.category = t4.id 
-                                        LEFT JOIN tblpackage as t5 on t2.PackageType = t5.id 
-                                        WHERE t1.id = :bookindid AND t1.userid = :uid";
+                                $uid = (string)$uid; // Convert to string for VARCHAR matching
                                 
-                                $query = $dbh->prepare($sql);
-                                $query->bindParam(':bookindid', $bookindid, PDO::PARAM_INT);
-                                $query->bindParam(':uid', $uid, PDO::PARAM_INT);
-                                $query->execute();
-                                $results = $query->fetchAll(PDO::FETCH_OBJ);
+                                // Check if status column exists
+                                $hasStatusColumn = false;
+                                try {
+                                    $checkColSql = "SHOW COLUMNS FROM tblbooking LIKE 'status'";
+                                    $checkColQuery = $dbh->query($checkColSql);
+                                    $hasStatusColumn = ($checkColQuery->rowCount() > 0);
+                                } catch (PDOException $e) {
+                                    $hasStatusColumn = false;
+                                }
                                 
-                                if ($query->rowCount() > 0) {
+                                // Build query based on whether status column exists
+                                if($hasStatusColumn) {
+                                    $sql = "SELECT t1.id as bookingid, COALESCE(t1.status, 'pending') as status, t1.paymentType as paymentType, t3.fname as Name, t3.email as email, 
+                                            t1.booking_date as bookingdate, t2.titlename as title, t2.PackageDuratiobn as PackageDuratiobn, 
+                                            t2.Price as Price, t2.Description as Description, t4.category_name as category_name, 
+                                            t5.PackageName as PackageName 
+                                            FROM tblbooking as t1 
+                                            LEFT JOIN tbladdpackage as t2 on t1.package_id = t2.id 
+                                            LEFT JOIN tbluser as t3 on t1.userid = t3.id 
+                                            LEFT JOIN tblcategory as t4 on t2.category = t4.id 
+                                            LEFT JOIN tblpackage as t5 on t2.PackageType = t5.id 
+                                            WHERE t1.id = :bookindid AND t1.userid = :uid";
+                                } else {
+                                    $sql = "SELECT t1.id as bookingid, 'pending' as status, t1.paymentType as paymentType, t3.fname as Name, t3.email as email, 
+                                            t1.booking_date as bookingdate, t2.titlename as title, t2.PackageDuratiobn as PackageDuratiobn, 
+                                            t2.Price as Price, t2.Description as Description, t4.category_name as category_name, 
+                                            t5.PackageName as PackageName 
+                                            FROM tblbooking as t1 
+                                            LEFT JOIN tbladdpackage as t2 on t1.package_id = t2.id 
+                                            LEFT JOIN tbluser as t3 on t1.userid = t3.id 
+                                            LEFT JOIN tblcategory as t4 on t2.category = t4.id 
+                                            LEFT JOIN tblpackage as t5 on t2.PackageType = t5.id 
+                                            WHERE t1.id = :bookindid AND t1.userid = :uid";
+                                }
+                                
+                                try {
+                                    $query = $dbh->prepare($sql);
+                                    $query->bindParam(':bookindid', $bookindid, PDO::PARAM_INT);
+                                    $query->bindParam(':uid', $uid, PDO::PARAM_STR);
+                                    $query->execute();
+                                    $results = $query->fetchAll(PDO::FETCH_OBJ);
+                                } catch (PDOException $e) {
+                                    echo '<div class="alert alert-danger text-center">Error loading booking details: ' . htmlentities($e->getMessage()) . '</div>';
+                                    $hasError = true;
+                                    $results = [];
+                                }
+                                
+                                if (!$hasError && count($results) > 0) {
                                     foreach ($results as $result) {
                                         // Store values for later use
                                         $booking_title = $result->title;
@@ -253,11 +275,20 @@ if(strlen($_SESSION["uid"]) == 0) {
                                         <span class="chip chip-info"><i class="fa fa-clock me-1"></i><?php echo htmlentities($booking_duration); ?></span>
                                         <span class="chip"><i class="fa fa-list-alt me-1"></i><?php echo htmlentities($result->category_name); ?></span>
                                         <span class="chip"><i class="fa fa-tag me-1"></i><?php echo htmlentities($result->PackageName); ?></span>
-                                        <?php if(!empty($result->paymentType)) { ?>
-                                            <span class="chip chip-success"><i class="fa fa-check-circle me-1"></i><?php echo htmlentities($result->paymentType); ?></span>
-                                        <?php } else { ?>
-                                            <span class="chip chip-warn"><i class="fa fa-exclamation-circle me-1"></i>Unpaid</span>
-                                        <?php } ?>
+                                        <?php 
+                                        $booking_status = isset($result->status) ? $result->status : 'pending';
+                                        if($booking_status == 'pending') {
+                                            echo '<span class="chip" style="background: #f59e0b; color: white;"><i class="fa fa-clock me-1"></i>Pending Approval</span>';
+                                        } elseif($booking_status == 'accepted') {
+                                            if(!empty($result->paymentType)) {
+                                                echo '<span class="chip chip-success"><i class="fa fa-check-circle me-1"></i>'.htmlentities($result->paymentType).'</span>';
+                                            } else {
+                                                echo '<span class="chip chip-warn"><i class="fa fa-exclamation-circle me-1"></i>Unpaid</span>';
+                                            }
+                                        } elseif($booking_status == 'declined') {
+                                            echo '<span class="chip" style="background: #ef4444; color: white;"><i class="fa fa-times-circle me-1"></i>Declined</span>';
+                                        }
+                                        ?>
                                     </div>
                                 </div>
                                 <div class="summary-right text-end">
@@ -339,7 +370,23 @@ if(strlen($_SESSION["uid"]) == 0) {
                                                 </div>
                                             </div>
                                             <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                                                <?php if(!$ptype): ?>
+                                                <?php 
+                                                $ptype = isset($result->paymentType) ? $result->paymentType : '';
+                                                $booking_status = isset($result->status) ? $result->status : 'pending';
+                                                
+                                                if($booking_status == 'pending'): ?>
+                                                    <div class="alert alert-warning mb-0">
+                                                        <i class="fas fa-clock me-2"></i>
+                                                        <strong>Booking Pending Approval</strong><br>
+                                                        <small>Please wait for admin to accept your booking before making payment.</small>
+                                                    </div>
+                                                <?php elseif($booking_status == 'declined'): ?>
+                                                    <div class="alert alert-danger mb-0">
+                                                        <i class="fas fa-times-circle me-2"></i>
+                                                        <strong>Booking Declined</strong><br>
+                                                        <small>This booking has been declined by admin.</small>
+                                                    </div>
+                                                <?php elseif($booking_status == 'accepted' && !$ptype): ?>
                                                     <div class="d-flex gap-2 justify-content-md-end flex-wrap">
                                                         <button id="payment-button" class="btn-payment">
                                                             <i class="fas fa-credit-card me-2"></i>
@@ -349,6 +396,11 @@ if(strlen($_SESSION["uid"]) == 0) {
                                                             <i class="fas fa-money-bill-wave me-2"></i>
                                                             Pay Cash (Pending)
                                                         </button>
+                                                    </div>
+                                                <?php elseif($booking_status == 'accepted' && $ptype): ?>
+                                                    <div class="alert alert-success mb-0">
+                                                        <i class="fas fa-check-circle me-2"></i>
+                                                        <strong>Payment Completed</strong>
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
@@ -469,7 +521,34 @@ if(strlen($_SESSION["uid"]) == 0) {
     <script src="js/main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    <script src="https://khalti.com/static/khalti-checkout.js"></script>
+    <!-- Khalti Checkout Script - Load with error handling -->
+    <script>
+        // Load Khalti script dynamically with error handling
+        function loadKhaltiScript() {
+            return new Promise((resolve, reject) => {
+                // Check if already loaded
+                if (typeof KhaltiCheckout !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = 'https://khalti.com/static/khalti-checkout.js';
+                script.async = true;
+                script.onload = function() {
+                    if (typeof KhaltiCheckout !== 'undefined') {
+                        resolve();
+                    } else {
+                        reject(new Error('KhaltiCheckout not defined after script load'));
+                    }
+                };
+                script.onerror = function() {
+                    reject(new Error('Failed to load Khalti script'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+    </script>
     
     <script>
         // Initialize AOS animations
@@ -481,11 +560,21 @@ if(strlen($_SESSION["uid"]) == 0) {
         
         // Payment Modal Functions
         let paymentModal;
+        let khaltiScriptLoaded = false;
         
         function showPaymentModal() {
             paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
             paymentModal.show();
         }
+        
+        // Load Khalti script on page load
+        loadKhaltiScript().then(() => {
+            khaltiScriptLoaded = true;
+            console.log('Khalti script loaded successfully');
+        }).catch((err) => {
+            console.error('Failed to load Khalti script:', err);
+            khaltiScriptLoaded = false;
+        });
         
         // Handle payment form submission (non-Khalti)
         document.addEventListener('DOMContentLoaded', function() {
@@ -495,6 +584,23 @@ if(strlen($_SESSION["uid"]) == 0) {
             const isConfigured = !!publicKey && publicKey !== 'PUT_YOUR_PUBLIC_KEY_HERE' && (/^(test_|live_)/.test(publicKey) || publicKey.length >= 20);
             
             function launchKhalti() {
+                // Check if script is loaded
+                if (!khaltiScriptLoaded && typeof KhaltiCheckout === 'undefined') {
+                    // Try to load script now
+                    loadKhaltiScript().then(() => {
+                        khaltiScriptLoaded = true;
+                        launchKhalti(); // Retry
+                    }).catch(() => {
+                        alert('Khalti payment gateway is currently unavailable. Please try again later or use an alternative payment method.');
+                    });
+                    return;
+                }
+                
+                if (typeof KhaltiCheckout === 'undefined') {
+                    alert('Khalti script failed to load. Please refresh the page and try again.');
+                    return;
+                }
+                
                 const bookingId = document.getElementById('booking_id').value;
                 const amountNpr = parseInt(document.getElementById('amount').value, 10);
                 if (!Number.isFinite(amountNpr) || amountNpr <= 0) {
@@ -503,53 +609,58 @@ if(strlen($_SESSION["uid"]) == 0) {
                 }
                 const productName = '<?php echo isset($booking_title) ? htmlspecialchars($booking_title, ENT_QUOTES) : 'Gym Package'; ?>';
                 
-                const checkout = new KhaltiCheckout({
-                    publicKey: publicKey,
-                    productIdentity: String(bookingId),
-                    productName: productName,
-                    productUrl: window.location.href,
-                    eventHandler: {
-                        onSuccess: function(payload) {
-                            fetch('khalti/verify.php', {
-                                method: 'POST', 
-                                headers: {'Content-Type':'application/json'},
-                                body: JSON.stringify({ 
-                                    token: payload.token, 
-                                    amount: payload.amount, 
-                                    booking_id: bookingId 
+                try {
+                    const checkout = new KhaltiCheckout({
+                        publicKey: publicKey,
+                        productIdentity: String(bookingId),
+                        productName: productName,
+                        productUrl: window.location.href,
+                        eventHandler: {
+                            onSuccess: function(payload) {
+                                fetch('khalti/verify.php', {
+                                    method: 'POST', 
+                                    headers: {'Content-Type':'application/json'},
+                                    body: JSON.stringify({ 
+                                        token: payload.token, 
+                                        amount: payload.amount, 
+                                        booking_id: bookingId 
+                                    })
                                 })
-                            })
-                            .then(async (r) => {
-                                let data;
-                                try { data = await r.json(); } catch (e) { data = { success:false, message: 'Invalid server response' }; }
-                                if (!r.ok) {
-                                    const msg = (data && data.message) ? data.message : ('HTTP ' + r.status);
-                                    throw new Error(msg);
-                                }
-                                return data;
-                            })
-                            .then(res => {
-                                if (res.success) { 
-                                    alert('Payment successful!'); 
-                                    window.location.reload(); 
-                                } else { 
-                                    alert(res.message || 'Verification failed'); 
-                                }
-                            })
-                            .catch((err) => {
-                                console.error('Khalti verification error:', err);
-                                alert('Payment verification failed: ' + (err && err.message ? err.message : 'Unknown error'));
-                            });
-                        },
-                        onError: function(err){ 
-                            console.error('Khalti onError:', err); 
-                            const msg = (err && err.message) ? err.message : 'Payment error.';
-                            alert(msg); 
-                        },
-                        onClose: function(){}
-                    }
-                });
-                checkout.show({ amount: amountNpr * 100 });
+                                .then(async (r) => {
+                                    let data;
+                                    try { data = await r.json(); } catch (e) { data = { success:false, message: 'Invalid server response' }; }
+                                    if (!r.ok) {
+                                        const msg = (data && data.message) ? data.message : ('HTTP ' + r.status);
+                                        throw new Error(msg);
+                                    }
+                                    return data;
+                                })
+                                .then(res => {
+                                    if (res.success) { 
+                                        alert('Payment successful!'); 
+                                        window.location.reload(); 
+                                    } else { 
+                                        alert(res.message || 'Verification failed'); 
+                                    }
+                                })
+                                .catch((err) => {
+                                    console.error('Khalti verification error:', err);
+                                    alert('Payment verification failed: ' + (err && err.message ? err.message : 'Unknown error'));
+                                });
+                            },
+                            onError: function(err){ 
+                                console.error('Khalti onError:', err); 
+                                const msg = (err && err.message) ? err.message : 'Payment error.';
+                                alert(msg); 
+                            },
+                            onClose: function(){}
+                        }
+                    });
+                    checkout.show({ amount: amountNpr * 100 });
+                } catch (error) {
+                    console.error('Error initializing Khalti checkout:', error);
+                    alert('Failed to initialize payment. Please try again.');
+                }
             }
             
             const payBtn = document.getElementById('payWithKhalti');
@@ -568,14 +679,16 @@ if(strlen($_SESSION["uid"]) == 0) {
             const makeBtn = document.getElementById('payment-button');
             if (makeBtn) {
                 if (isConfigured) {
-                    // Direct Khalti payment
+                    // Use ePayment API instead of widget (more reliable)
                     makeBtn.addEventListener('click', function(e) {
                         e.preventDefault();
-                        if (typeof KhaltiCheckout === 'undefined') { 
-                            alert('Khalti script failed to load.'); 
-                            return; 
+                        const bookingId = document.getElementById('booking_id').value;
+                        if (bookingId) {
+                            // Redirect to ePayment API handler
+                            window.location.href = 'khalti/process-khalti-payment.php?booking_id=' + bookingId;
+                        } else {
+                            alert('Invalid booking ID');
                         }
-                        launchKhalti();
                     });
                 } else {
                     // Show modal for other payment methods
